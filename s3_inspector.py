@@ -12,7 +12,7 @@ from botocore.exceptions import ClientError
 
 # import boto.s3.connection
 
-def inspector_curl(url: object = 'http://127.0.0.1:8001', timeout: object = 5) -> object:
+def inspector_curl(url='http://127.0.0.1:8001', timeout=5):
     try:
         _ = requests.get(url, timeout=timeout)
         print("CURL IS UP!")
@@ -23,13 +23,12 @@ def inspector_curl(url: object = 'http://127.0.0.1:8001', timeout: object = 5) -
 
 
 if __name__ == '__main__':
-    access_key = '64FPI7CYUVFSDOW1F4V8'  # Add your S3 Access Key here
-    secret_key = 'YQgBOcHxP7rsZf5pEqftV4I5IpwFcvIwOU14Y17e'  # Add your S3 Secret Key here
+    access_key = 'RK224EIAHPE2BH7ZYIQW'  # Add your S3 Access Key here
+    secret_key = 'QoHW1yt4OpvMjpnOuLse7cN3jKTgqz34cLMnzIsN'  # Add your S3 Secret Key here
     bucket_name = 'inspector'
     service_state = inspector_curl()
     s3 = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key,
                       endpoint_url='http://127.0.0.1:8001')
-    s3 = boto3.resource('s3')
     print(s3)
     s3.create_bucket(Bucket='inspector_bucket')
     'Bucket {} created!'.format("inspector")
