@@ -26,6 +26,7 @@ class Inspector:
         args = parser.parse_args()
 
         # building instance vars
+        self.statuspageurl = ''
         self.endpoint_url = args.endpoint_url
         self.access_key = args.access_key
         self.secret_key = args.secret_key
@@ -50,6 +51,7 @@ class Inspector:
 
         return diff
 
+    # Checks for http response
     def inspector_curl(self):
         try:
             _ = requests.get(self.endpoint_url, timeout=5)
@@ -59,15 +61,18 @@ class Inspector:
             print("S3 service is not reachable.")
             return False
 
+    # Puts object on the s3
     def put_object(self, name, bin_data):
         self.s3.put_object(Key=object_name, Bucket=self.bucket_name, Body=bin_data)
 
-    def create_bin_data(self):
-        return humanfriendly.parse_size(self.object_size) * STRING
-
+    # Gets object from the s3
     def get_object(self, name):
         response = self.s3.get_object(Bucket=self.bucket_name, Key=object_name)
         response['Body'].read()
+
+    # Creates data from the memory for the Ceph object
+    def create_bin_data(self):
+        return humanfriendly.parse_size(self.object_size) * STRING
 
 
 if __name__ == '__main__':
@@ -98,5 +103,6 @@ if __name__ == '__main__':
 
     # checks for get and put latency
     get_latency = inspector.time_operation('GET', object_name, "")
-    put_latency = inspector.time_operation(('PUT', object_name, ""))
+    put_latency = inspector.time_operation('PUT', object_name, "")
 
+    # compares between the latency and the threshold
