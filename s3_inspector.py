@@ -30,7 +30,7 @@ class Inspector:
         self.endpoint_url = args.endpoint_url
         self.access_key = args.access_key
         self.secret_key = args.secret_key
-        self.bucket_name = 'inspector'
+        self.bucket_name = 'inspector_bucket'
         self.object_size = '1MB'
         self.object_name = 'inspector_test_object'
         self.s3 = boto3.client('s3', endpoint_url=self.endpoint_url, aws_access_key_id=self.access_key,
@@ -74,8 +74,9 @@ class Inspector:
     def create_bin_data(self):
         return humanfriendly.parse_size(self.object_size) * STRING
 
+    #def notifytostatuspage(self, requestcheck, g_latency, p_latency, p_object, g_object):
 
-if __name__ == '__main__':
+
 
     # Creates an instance
     inspector = Inspector()
@@ -88,7 +89,7 @@ if __name__ == '__main__':
         print("Bucket already exist, No need to create.")
 
     # Creates binary data
-    data = Inspector.create_bin_data()
+    data = inspector.create_bin_data()
     # sets the object's name
     object_name = 'inspector_test_object'
 
@@ -96,7 +97,7 @@ if __name__ == '__main__':
     inspector.put_object(object_name, bin_data=data)
 
     # test download
-    inspector.get_object(object_name, bin_data=data)
+    inspector.get_object(object_name)
 
     # True of False, checks curl
     curl_check = inspector.inspector_curl()
@@ -105,4 +106,6 @@ if __name__ == '__main__':
     get_latency = inspector.time_operation('GET', object_name, "")
     put_latency = inspector.time_operation('PUT', object_name, "")
 
+    print(get_latency)
+    print(put_latency)
     # compares between the latency and the threshold

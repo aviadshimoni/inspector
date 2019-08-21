@@ -1,0 +1,7 @@
+argparse
+requests
+datetime
+boto3
+botocore
+humanfriendly
+
