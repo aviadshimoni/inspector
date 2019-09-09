@@ -21,12 +21,12 @@ class Inspector:
         parser.add_argument('-e', '--endpoint-url', help="endpoint url for s3 object storage", required=True)
         parser.add_argument('-a', '--access-key', help='access key for s3 object storage', required=True)
         parser.add_argument('-s', '--secret-key', help='secret key for s3 object storage', required=True)
-
+       
         # parsing all arguments
         args = parser.parse_args()
 
         # building instance vars
-        self.statuspageurl = ''
+        self.statuspageurl = 
         self.endpoint_url = args.endpoint_url
         self.access_key = args.access_key
         self.secret_key = args.secret_key
@@ -55,11 +55,10 @@ class Inspector:
     def inspector_curl(self):
         try:
             _ = requests.get(self.endpoint_url, timeout=5)
-            print("S3 IS UP!")
-            return True
+            print("S3 Service is UP")
+            
         except requests.ConnectionError:
-            print("S3 service is not reachable.")
-            return False
+            
 
     # Puts object on the s3
     def put_object(self, name, bin_data):
@@ -77,6 +76,7 @@ class Inspector:
     #def notifytostatuspage(self, requestcheck, g_latency, p_latency, p_object, g_object):
 
 
+if __name__ == '__main__':
 
     # Creates an instance
     inspector = Inspector()
