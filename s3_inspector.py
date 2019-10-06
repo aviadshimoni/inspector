@@ -11,9 +11,7 @@ import datetime
 from botocore import endpoint
 from botocore.exceptions import ClientError
 import humanfriendly
-import cachetclient
-from cachetclient.v1 import enums
-from cachetclient.v1 import components
+from cachetclient.cachet as cachet
 
 
 STRING = 'a'
@@ -28,12 +26,12 @@ class Inspector:
         parser.add_argument('-a', '--access-key', help='access key for s3 object storage', required=True)
         parser.add_argument('-s', '--secret-key', help='secret key for s3 object storage', required=True)
         parser.add_argument('-c', '--cachet-token', help='secret key for cachet client status page', required=True)
+
         # parsing all arguments
         args = parser.parse_args()
 
         # building instance vars
-        self.statuspage = 'http://status.test/api/v1'
-
+        self.statuspage = 'http://localhost/api/v1'
         self.endpoint_url = args.endpoint_url
         self.access_key = args.access_key
         self.secret_key = args.secret_key
@@ -43,6 +41,9 @@ class Inspector:
         self.object_name = 'inspector_test_object'
         self.s3 = boto3.client('s3', endpoint_url=self.endpoint_url, aws_access_key_id=self.access_key,
                                aws_secret_access_key=self.secret_key)
+        self.components =  cachet.Components(
+            endpoint = self.statuspage,
+            api_token = self.cachet_token)
 
     def time_operation(self, method, name, bin_data):
         if method == 'GET':
@@ -65,7 +66,7 @@ class Inspector:
             _ = requests.get(self.endpoint_url, timeout=5)
             return True
         except requests.ConnectionError:
-            print "Connection Error"
+            print ("Connection Error")
             return False
             
 
@@ -75,36 +76,28 @@ class Inspector:
 
     # Gets object from the s3
     def get_object(self, name):
-        response = self.s3.get_object(Bucket=self.bucket_name, Key=object_name)
+        response = self.s3.get_object(Bucket=self.bucket_name, Key=self.object_name)
         response['Body'].read()
 
     # Creates data from the memory for the Ceph object
     def create_bin_data(self):
         return humanfriendly.parse_size(self.object_size) * STRING
     
-    def cachet_connect():
-        client = cachetclient.Client(
-            endpoint=self.statuspage
-            api_token=self.cachet_token
-            return client
-        )
 
-    def notify_cachet_curl(Client):
-        Client.ComponentManager.update(component_id=1, status=4)
+    def notify_cachet_curl(self):
+        self.components.put(id=1, status=4)
 
-    def notify_cachet_get_performance(Client):
-        Client.ComponentManager.update(component_id=2, status=4)
+    def notify_cachet_get_performance(self):
+        self.components.put(id=2, status=3)
 
-    def notify_cachet_get_performance(Client):
-        Client.ComponentManager.update(component_id=3, status=4)
+    def notify_cachet_put_performance(self):
+        self.components.put(id=3, status=3)
     
 
 if __name__ == '__main__':
 
     # Creates an instance
     inspector = Inspector()
-
-    cachet_connection = cachet_connect()
 
     # Creates a bucket for our script, if bucket's already exists, prints a message.
     try:
@@ -118,7 +111,7 @@ if __name__ == '__main__':
     # sets the object's name
     object_name = 'inspector_test_object'
 
-    # test upload
+    # test uploadr
     inspector.put_object(object_name, bin_data=data)
 
     # test download
@@ -127,8 +120,8 @@ if __name__ == '__main__':
     # True of False, checks curl
     curl_check = inspector.inspector_curl()
 
-    if !curl_check:
-        notify_cachet_curl(cachet_connection)
+    if curl_check is False:
+        inspector.notify_cachet_curl()
 
     # checks for get and put latency
     get_latency = inspector.time_operation('GET', object_name, "")
@@ -136,12 +129,9 @@ if __name__ == '__main__':
 
     # compares between the latency and the threshold
     if ( get_latency >= 2 ):
-        notify_notify_cachet_get_performance(cachet_connection)
-    else:
-        #make it green
-        #sending to status page function
+        inspector.notify_cachet_get_performance()
     
     if ( put_latency >= 2 ):
-        notify_notify_cachet_put_performance(cachet_connection)
+        inspector.notify_cachet_put_performance()
    
     
