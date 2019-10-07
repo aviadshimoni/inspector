@@ -11,6 +11,7 @@ import datetime
 from botocore import endpoint
 from botocore.exceptions import ClientError
 import humanfriendly
+import redis
 from cachetclient.cachet as cachet
 
 
@@ -31,6 +32,7 @@ class Inspector:
         args = parser.parse_args()
 
         # building instance vars
+        # Assuming that we have only one cachet page in the environment
         self.statuspage = 'http://localhost/api/v1'
         self.endpoint_url = args.endpoint_url
         self.access_key = args.access_key
@@ -44,6 +46,11 @@ class Inspector:
         self.components =  cachet.Components(
             endpoint = self.statuspage,
             api_token = self.cachet_token)
+        try:
+            self.reditconnection = redis.Redis(host='redishost', port=6379, db=0)
+        except Exception as ex:
+            print 'Error:', ex
+            exit('Failed to connect to the redis host, terminating')
 
     def time_operation(self, method, name, bin_data):
         if method == 'GET':
@@ -60,7 +67,7 @@ class Inspector:
 
         return diff
 
-    # Checks for http response
+    # Checks for a http response
     def inspector_curl(self):
         try:
             _ = requests.get(self.endpoint_url, timeout=5)
@@ -83,15 +90,17 @@ class Inspector:
     def create_bin_data(self):
         return humanfriendly.parse_size(self.object_size) * STRING
     
-
+    # changes the S3 Object Service status to Major Outage
     def notify_cachet_curl(self):
         self.components.put(id=1, status=4)
-
+    
+    # changes the Get Performance component status to Performance Issues
     def notify_cachet_get_performance(self):
-        self.components.put(id=2, status=3)
+        self.components.put(id=2, status=2)
 
+    # changes the Put Performance component status to Performance Issues
     def notify_cachet_put_performance(self):
-        self.components.put(id=3, status=3)
+        self.components.put(id=3, status=2)
     
 
 if __name__ == '__main__':
@@ -111,15 +120,15 @@ if __name__ == '__main__':
     # sets the object's name
     object_name = 'inspector_test_object'
 
-    # test uploadr
+    # test upload
     inspector.put_object(object_name, bin_data=data)
 
     # test download
     inspector.get_object(object_name)
 
-    # True of False, checks curl
+    # True of False, checks for http response
     curl_check = inspector.inspector_curl()
-
+    
     if curl_check is False:
         inspector.notify_cachet_curl()
 
