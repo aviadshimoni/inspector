@@ -22,20 +22,16 @@ STRING = 'a'
 class Inspector:
 
     def __init__(self):
-        # creates all needed arguments for the program to run
-        parser = argparse.ArgumentParser()
-        #parser.add_argument('-e', '--endpoint-url', help="endpoint url for s3 object storage", required=True)
-        
         # parsing all arguments
         args = parser.parse_args()
 
         # building instance vars
         self.statuspage = 'http://localhost/api/v1'
-        self.endpoint_url = args.endpoint_url
-        self.access_key = cred.aws_access_key
-        self.secret_key = cred.aws_secret_key
-        self.redishost = 'redishost'
-        self.cachet_token = cred.cachet_token    
+        self.endpoint_url = config.endpoint_url
+        self.access_key = config.aws_access_key
+        self.secret_key = config.aws_secret_key
+        self.redishost = 'redis_host'
+        self.cachet_token = config.cachet_token    
         self.bucket_name = 'inspector_bucket'
         self.object_size = '1MB'
         self.object_name = 'inspector_test_object'
