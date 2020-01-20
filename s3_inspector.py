@@ -14,7 +14,6 @@ from botocore.exceptions import ClientError
 import humanfriendly
 import redis
 from cachetclient.cachet as cachet
-import cred
 
 STRING = 'a'
 
@@ -115,7 +114,7 @@ class Inspector:
         self.components.put(id=2, status=statusnum)
 
     # changes the Put Performance component status to Performance Issues
-    def notify_cachet_put_performance(self, status):
+    def notify_cachet_put_performance(self, statusnum):
         self.components.put(id=3, status=statusnum)
     
 
@@ -152,15 +151,19 @@ if __name__ == '__main__':
     get_latency = inspector.time_operation('GET', object_name, "")
     put_latency = inspector.time_operation('PUT', object_name, "")
 
-    #push it to a redis list
+    # pushs them to a redis list
     inspector.redisconnection.rpush("getlist", get_latency)    
     inspector.redisconnection.rpush("putlist", put_latency)
    
-    # Checks 10 last arguments in the redis db based on the access method
+    ### Checks 10 last arguments in the redis db based on the access method
+
+    # if redis10 returns True, means that get performance is good, sets performance to O.K, else, degreded. 
     if inspector.redis10('GET') is True:
         inspector.notify_cachet_get_performance(2)
     else:
         inspector.notify_cachet_get_performance(1)
+
+    # if redis10 returns True, means that put performance is good, sets performance to O.K, else, degreded.
     if inspector.redis10('PUT') is True:
         inspector.notify_cachet_put_performance(2)
     else:
