@@ -25,11 +25,11 @@ class Inspector:
         args = parser.parse_args()
 
         # building instance vars
-        self.statuspage = 'http://localhost/api/v1'
+        self.statuspage = 'http://' + config.statuspage + '/api/v1'
         self.endpoint_url = config.endpoint_url
         self.access_key = config.aws_access_key
         self.secret_key = config.aws_secret_key
-        self.redishost = 'redis_host'
+        self.redishost = config.redishost
         self.cachet_token = config.cachet_token    
         self.bucket_name = 'inspector_bucket'
         self.object_size = '1MB'
