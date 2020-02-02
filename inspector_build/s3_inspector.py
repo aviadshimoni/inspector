@@ -1,19 +1,19 @@
-#!/usr/bin/env python3
-
 '''
 @Author Aviad Shimoni
 @Date   18/08/2019
 Script used by customers to define our S3 service quality
 '''
-import argparse
 import requests
 import boto3
 import datetime
+import config
+import os
+import json
 from botocore import endpoint
 from botocore.exceptions import ClientError
 import humanfriendly
 import redis
-from cachetclient.cachet as cachet
+import cachetclient.cachet as cachet
 
 STRING = 'a'
 
@@ -21,36 +21,37 @@ STRING = 'a'
 class Inspector:
 
     def __init__(self):
-        # parsing all arguments
-        args = parser.parse_args()
-
         # building instance vars
-        self.statuspage = 'http://' + config.statuspage + '/api/v1'
+        self.statuspage = 'http://'+config.cachet_host+':80/api/v1'
         self.endpoint_url = config.endpoint_url
-        self.access_key = config.aws_access_key
-        self.secret_key = config.aws_secret_key
-        self.redishost = config.redishost
-        self.cachet_token = config.cachet_token    
+        self.access_key = config.access
+        self.secret_key = config.secret
+        self.redishost = config.redis_host
+        self.cachet_token = config.apitoken    
         self.bucket_name = 'inspector_bucket'
         self.object_size = '1MB'
         self.object_name = 'inspector_test_object'
+        #try to connect to cachet using cachet sdk
         try:
-        self.s3 = boto3.client('s3', endpoint_url=self.endpoint_url, aws_access_key_id=self.access_key,
-                               aws_secret_access_key=self.secret_key)
+            self.components =  cachet.Components(endpoint = self.statuspage,
+            api_token = self.cachet_token)
         except Exception as ex:
-            print 'Error:', ex
-            exit('Failed to connect to Ceph Cluster using boto3, terminating')
-        try:
-            self.components =  cachet.Components(
-                endpoint = self.statuspage,
-                api_token = self.cachet_token)
-        except Exception as ex:
-            print 'Error:', ex
+            print ('Error:', ex)
             exit('Failed to connect to Cachet using Cacht SDK, terminating')
+        #try to connect to ceph cluster using boto3
+        try:
+            self.s3 = boto3.client('s3', endpoint_url=self.endpoint_url, aws_access_key_id=self.access_key, aws_secret_access_key=self.secret_key)
+        except Exception as ex:
+            self.notify_cachet_curl()
+            self.notify_cachet_get_performance(4)
+            self.notify_cachet_put_performance(4)
+            print  ('Error:', ex)
+            exit('Failed to connect to Ceph Cluster using boto3, terminating')
+        #try to connect to redis using redis sdk
         try:
             self.redisconnection = redis.Redis(host=self.redishost, port=6379, db=0)
         except Exception as ex:
-            print 'Error:', ex
+            print ('Error:', ex)
             exit('Failed to connect to the redis host, terminating')
 
     # returns action latency based on the method
@@ -95,13 +96,14 @@ class Inspector:
     def redis10(self, access_method):
         if access_method == 'GET':
             getlatencyarray = self.redisconnection.lrange('getlist', -10, 50000000)
+            print(getlatencyarray)
             for latency in getlatencyarray:
-                if latency < 2:
+                if float(latency) < 2:
                     return True
         elif access_method == 'PUT':
             putlatencyarray = self.redisconnection.lrange('putlist', -10, 5000000)
             for latency in putlatencyarray:
-                if latency < 2:
+                if float(latency) < 20:
                     return True
         return False
 
@@ -117,18 +119,20 @@ class Inspector:
     def notify_cachet_put_performance(self, statusnum):
         self.components.put(id=3, status=statusnum)
     
-
 if __name__ == '__main__':
 
     # Creates an instance
     inspector = Inspector()
-
     # Creates a bucket for our script, if bucket's already exists, prints a message.
     try:
         inspector.s3.create_bucket(Bucket='inspector_bucket')
         'Bucket {} created!'.format("inspector")
     except ClientError:
         print("Bucket already exist, No need to create.")
+    except Exception as ex:
+        print ('Error', ex)
+        inspector.notify_cachet_curl()
+        exit('Failed to connect to Ceph Cluster using boto3, terminating')
 
     # Creates binary data
     data = inspector.create_bin_data()
@@ -136,15 +140,16 @@ if __name__ == '__main__':
     object_name = 'inspector_test_object'
 
     # test upload
-    inspector.put_object(object_name, bin_data=data)
-
+    try:
+        inspector.put_object(object_name, bin_data=data)
+    except Exception as ex:
+        print ('Error', ex)
+        inspector.notify_cachet_curl()
     # test download
     inspector.get_object(object_name)
 
     # True of False, checks for http response
-    curl_check = inspector.inspector_curl()
-    
-    if curl_check is False:
+    if inspector.inspector_curl() is not True:
         inspector.notify_cachet_curl()
 
     # checks for get and put latency
@@ -162,7 +167,6 @@ if __name__ == '__main__':
         inspector.notify_cachet_get_performance(2)
     else:
         inspector.notify_cachet_get_performance(1)
-
     # if redis10 returns True, means that put performance is good, sets performance to O.K, else, degreded.
     if inspector.redis10('PUT') is True:
         inspector.notify_cachet_put_performance(2)
