@@ -1,0 +1,59 @@
+version: "3"
+
+services:
+  postgres:
+    image: postgres:9.5
+    volumes:
+      - /var/lib/postgresql/data
+    hostname: postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    restart: always
+    networks:
+      - overall-net
+  cachet:
+    build:
+      context: .
+      args:
+        - cachet_ver=2.4
+    links:
+      - postgres:postgres
+    ports:
+      - 80:8000
+    networks:
+      - overall-net
+    environment:
+      - DB_DRIVER=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=postgres
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_PREFIX=chq_
+      - APP_KEY=base64:Xa9fh4zeZwWvYN7+JExdfMwaMOs890c5kRAjI8BEwwA=
+      - APP_LOG=errorlog
+      - DEBUG=false
+    hostname: cachet
+    depends_on:
+      - postgres
+    restart: on-failure
+  redis:
+    image: redis
+    command: ["redis-server", "--appendonly", "yes"]
+    hostname: redis
+    ports:
+      - 6379:6379
+    networks:
+      - overall-net
+    volumes:
+      - redis-data:/data
+    restart: always
+    depends_on:
+      - cachet
+
+networks:
+  overall-net:
+volumes:
+  redis-data:
+
