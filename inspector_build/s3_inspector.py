@@ -28,31 +28,35 @@ class Inspector:
         self.secret_key = config.secret
         self.redishost = config.redis_host
         self.cachet_token = config.apitoken    
-        self.bucket_name = 'inspector_bucket'
-        self.object_size = '1MB'
-        self.object_name = 'inspector_test_object'
-        #try to connect to cachet using cachet sdk
+        self.bucket_name = config.bucket_name #inspector_bucket
+        
+    # tries to connect to redis using redis sdk, if can't - exits and prints a message 
+    def connects_to_redis(self):
+        try:
+            self.redisconnection = redis.Redis(host=self.redishost, port=6379, db=0)
+        except Exception as ex:
+            print ('Error:', ex)
+            exit('Failed to connect to the redis host, terminating')
+
+    # tries to connect to ceph cluster using boto3, if can't - exits and prints a message
+    def connects_to_s3(self):
+        try:
+            self.s3 = boto3.client('s3', endpoint_url=self.endpoint_url, aws_access_key_id=self.access_key, aws_secret_access_key=self.secret_key)
+        except Exception as ex:
+            self.notify_cachet_curl()
+            self.notify_cachet_get_performance(maj_out)
+            self.notify_cachet_put_performance(maj_out)
+            print  ('Error:', ex)
+            exit('Failed to connect to Ceph Cluster using boto3, terminating')
+
+    # tries to connect to cachet using cachet sdk, if can't - exit and prints a message
+    def connects_to_cachet(self):
         try:
             self.components =  cachet.Components(endpoint = self.statuspage,
             api_token = self.cachet_token)
         except Exception as ex:
             print ('Error:', ex)
             exit('Failed to connect to Cachet using Cacht SDK, terminating')
-        #try to connect to ceph cluster using boto3
-        try:
-            self.s3 = boto3.client('s3', endpoint_url=self.endpoint_url, aws_access_key_id=self.access_key, aws_secret_access_key=self.secret_key)
-        except Exception as ex:
-            self.notify_cachet_curl()
-            self.notify_cachet_get_performance(4)
-            self.notify_cachet_put_performance(4)
-            print  ('Error:', ex)
-            exit('Failed to connect to Ceph Cluster using boto3, terminating')
-        #try to connect to redis using redis sdk
-        try:
-            self.redisconnection = redis.Redis(host=self.redishost, port=6379, db=0)
-        except Exception as ex:
-            print ('Error:', ex)
-            exit('Failed to connect to the redis host, terminating')
 
     # returns action latency based on the method
     def time_operation(self, method, name, bin_data):
@@ -84,45 +88,106 @@ class Inspector:
         self.s3.put_object(Key=object_name, Bucket=self.bucket_name, Body=bin_data)
 
     # Gets object from the s3
-    def get_object(self, name):
-        response = self.s3.get_object(Bucket=self.bucket_name, Key=self.object_name)
+    def get_object(self, object_name):
+        response = self.s3.get_object(Bucket=self.bucket_name, Key=object_name)
         response['Body'].read()
 
     # Creates data from the memory for the Ceph object
-    def create_bin_data(self):
-        return humanfriendly.parse_size(self.object_size) * STRING
-
+    def create_bin_data(self, object_size):
+        return humanfriendly.parse_size(object_size) * STRING
+    
     # checks 10 last arguments latency on the database and returns True if all of them are greater than 2sec latency
-    def redis10(self, access_method):
+    def redis10(self, access_method, size):
         if access_method == 'GET':
-            getlatencyarray = self.redisconnection.lrange('getlist', -10, 50000000)
-            print(getlatencyarray)
+            getlatencyarray = self.redisconnection.lrange('getlist' + size, -10, 50000000)
             for latency in getlatencyarray:
                 if float(latency) < 2:
                     return True
         elif access_method == 'PUT':
-            putlatencyarray = self.redisconnection.lrange('putlist', -10, 5000000)
+            putlatencyarray = self.redisconnection.lrange('putlist' + size, -10, 5000000)
             for latency in putlatencyarray:
                 if float(latency) < 20:
                     return True
         return False
 
+    # generates random object name based on basename, object size and date
+    def randomize_name(size):
+        basename = "inspector_" + size 
+        suffix = datetime.datetime.now().strftime("%y%m%d_%H%M%S")
+        object_name = "_".join([basename, suffix]) # e.g. 'inspector_object_120508_171441'
+        return object_name
+    
     # changes the S3 Object Service status to Major Outage
     def notify_cachet_curl(self):
-        self.components.put(id=1, status=4)
-   
-    # changes the Get Performance component status to Performance Issues / Good Performance
-    def notify_cachet_get_performance(self, statusnum):
-        self.components.put(id=2, status=statusnum)
+        self.components.put(id=1, status=maj_out)
 
-    # changes the Put Performance component status to Performance Issues
-    def notify_cachet_put_performance(self, statusnum):
-        self.components.put(id=3, status=statusnum)
-    
+    # changes the Get Performance component status to Performance Issues / Good Performance based on Access Method & Object Size
+    def notify_cachet_performance(self, statusnum, size, access_method):
+        if accesss_method == 'GET':
+            # object size  = 16KB
+            if size == '16KB':
+                self.components.put(id=2, status=statusnum) # 16KB Get Performance component ID = 2
+            # object size = 128KB
+            elif size == '128KB':           
+                self.components.put(id=3, status=statusnum) # 128KB Get Performance component ID = 3
+            # object size = 512KB
+            elif size == '512KB':
+                self.components.put(id=4, status=statusnum) # 512KB Get Performance component ID = 4
+            # object size = 1MB
+            elif size == '1MB':
+                self.components.put(id=5, status=statusnum) # 1MB Get Performance component ID = 5
+             # object size = 2MB
+            elif size = '2MB':
+                self.components.put(id=6, status=statusnum) # 2MB aGet Performance component ID = 6
+            # object size = 32MB
+            elif size = '32MB'
+                self.components.put(id=7, status=statusnum) # 32MB Get Performance component ID = 7
+
+        elif access_method == 'PUT':
+            # object size  = 16KB
+            if size == '16KB':
+                self.components.put(id=8, status=statusnum) # 16KB Get Performance component ID = 8
+            # object size = 128KB
+            elif size == '128KB':
+                self.components.put(id=9, status=statusnum) # 128KB Get Performance component ID = 10
+            # object size = 512KB
+            elif size == '512KB':
+                self.components.put(id=10, status=statusnum) # 512KB Get Performance component ID = 9 
+            # object size = 1MB
+            elif size == '1MB':
+                self.components.put(id=11, status=statusnum) # 1MB Get Performance component ID = 11
+            # object size = 2MB
+            elif size = '2MB':
+                self.components.put(id=12, status=statusnum) # 2MB aGet Performance component ID = 12
+            # obejct size = 32MB
+            elif size = '32MB'
+                self.components.put(id=13, status=statusnum) # 32MB Get Performance component ID = 13
+
+
 if __name__ == '__main__':
+    # cachet components global vars which will be used to describe component status
 
+    # majoroutage - large component which affect all the service
+    maj_out = 4
+    
+    # good performance of a component
+    good_perf = 1
+    
+    # degraded performance of a component
+    deg_perf = 2 
+    
     # Creates an instance
     inspector = Inspector()
+    
+    # Connects to s3
+    inspector.connects_to_s3()
+    
+    # Connects to redis
+    inspector.connects_to_redis()
+    
+    # Connects to cachet
+    inspector.connects_to_cachet()
+    
     # Creates a bucket for our script, if bucket's already exists, prints a message.
     try:
         inspector.s3.create_bucket(Bucket='inspector_bucket')
@@ -133,43 +198,43 @@ if __name__ == '__main__':
         print ('Error', ex)
         inspector.notify_cachet_curl()
         exit('Failed to connect to Ceph Cluster using boto3, terminating')
+    
+    for size in config.object_size:
 
-    # Creates binary data
-    data = inspector.create_bin_data()
-    # sets the object's name
-    object_name = 'inspector_test_object'
+        # Creates binary data
+        data = inspector.create_bin_data(size)
+    
+        # Creates a random object name 
+        object_name = randomize_name(size)
 
-    # test upload
-    try:
-        inspector.put_object(object_name, bin_data=data)
-    except Exception as ex:
-        print ('Error', ex)
-        inspector.notify_cachet_curl()
-    # test download
-    inspector.get_object(object_name)
+        # test upload, if doesn't work, update S3 cachet component
+        try:
+            inspector.put_object(object_name, bin_data=data)
+        except Exception as ex:
+            print ('Error', ex)
+            inspector.notify_cachet_curl()
 
-    # True of False, checks for http response
-    if inspector.inspector_curl() is not True:
-        inspector.notify_cachet_curl()
+        # True of False, checks for http response
+        if inspector.inspector_curl() is not True:
+            inspector.notify_cachet_curl()
 
-    # checks for get and put latency
-    get_latency = inspector.time_operation('GET', object_name, "")
-    put_latency = inspector.time_operation('PUT', object_name, "")
+        # checks for get and put latency
+        get_latency = inspector.time_operation('GET', object_name, "")
+        put_latency = inspector.time_operation('PUT', object_name, data)
 
-    # pushs them to a redis list
-    inspector.redisconnection.rpush("getlist", get_latency)    
-    inspector.redisconnection.rpush("putlist", put_latency)
+        # pushs them to a redis lists based on access method and object size
+        inspector.redisconnection.rpush("getlist" + size, get_latency)    
+        inspector.redisconnection.rpush("putlist" + size, put_latency)
    
-    ### Checks 10 last arguments in the redis db based on the access method
+        ### Checks 10 last arguments in the redis db based on the access method
 
-    # if redis10 returns True, means that get performance is good, sets performance to O.K, else, degreded. 
-    if inspector.redis10('GET') is True:
-        inspector.notify_cachet_get_performance(2)
-    else:
-        inspector.notify_cachet_get_performance(1)
-    # if redis10 returns True, means that put performance is good, sets performance to O.K, else, degreded.
-    if inspector.redis10('PUT') is True:
-        inspector.notify_cachet_put_performance(2)
-    else:
-        inspector.notify_cachet_put_performance(1)
+        if inspector.redis10('GET', size) is True:
+            inspector.notify_cachet_performance(good_perf, size, 'GET')
+        else:
+            inspector.notify_cachet_performance(deg_perf, size, 'GET')
+        # if redis10 returns True, means that put performance is good, sets performance to O.K, else, degreded.
+        if inspector.redis10('PUT', object_size) is True:
+            inspector.notify_cachet_performance(good_perf, size, 'PUT')
+        else:
+            inspector.notify_cachet_performance(deg_perf, size, 'PUT')
         
