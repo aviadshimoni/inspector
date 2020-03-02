@@ -18,7 +18,7 @@ Before you get started, 4 containers should be up:
 
 Don't forget to edit the status page based on your needs and to comment out the unncessery  (in my lab I got 13 components, 1 for the all S3 Object Storage Service, and each 6 for PUT/GET Performance based on Object Size (cat config.py to see all Object Sizes tested in the script)
 
-For production purposes, 4 prouduction services should be up:
+For production purposes, 3 prouduction services should be up:
 * S3 Service (a storage backend provides native S3 API)
 * Redis Service - don't forget to write redis hostname/ip in config.py file
 * Cachet Status Page - containerized / daemonized - don't forget to write cachet host & cachet token api used for api calls
